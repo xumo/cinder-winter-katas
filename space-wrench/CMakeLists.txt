@@ -3,7 +3,7 @@ project(space-wrench)
 
 set(CMAKE_CXX_STANDARD 23)
 
-get_filename_component( CINDER_PATH "/Volumes/varinha/herramientas/Cinder" ABSOLUTE )
+get_filename_component( CINDER_PATH $ENV{CINDER_PATH}  ABSOLUTE )
 get_filename_component( APP_PATH ${CMAKE_CURRENT_SOURCE_DIR} ABSOLUTE )
 
 include( "${CINDER_PATH}/proj/cmake/modules/cinderMakeApp.cmake" )
