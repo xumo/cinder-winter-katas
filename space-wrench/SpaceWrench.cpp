@@ -246,6 +246,23 @@ void BoltPlaygroundApp::createGrid()
 }
 
 /*
+ Runge Kutta 4th order
+ dy/dt = f(t, y), y(t_0) = y_0
+ 
+ y_n+1 = y_n + h/6(k1 + k2 + k3 + k4)
+ t_n+1 = t_n + delta
+ 
+ k1 = f(t_n, y_n)
+ k2 = f(t_n + delta / 2, y_n + delta * k1 / 2)
+ k3 = f(t_n + delta / 2, y_n + delta * k2 / 2)
+ k4 = f(t_n + delta, y_n + delta * k3 )
+
+ ---------------------------
+ Looking to solve
+ 
+ dw/dt = f(t, w) = I^-1 * (N - w x I*w )
+ w = dq/dt
+ q = q_0 + delta * w
 
 function vector dw(const vector torque, w; const matrix3 I) {
 	// Euler's equations
@@ -278,32 +295,13 @@ vector kw  = (kw1  + kw2  * 2 + kw3  * 2 + kw4)  * @TimeInc / 6;
 v@torque = set(0, 0, 0);
 @orient  = qmultiply(q, quaternion(kw));
 @w       = qrotate(@orient, w + kdw);
- 
- 
- Runge Kutta 4th order
- dy/dt = f(t, y), y(t_0) = y_0
- 
- y_n+1 = y_n + h/6(k1 + k2 + k3 + k4)
- t_n+1 = t_n + delta
- 
- k1 = f(t_n, y_n)
- k2 = f(t_n + delta / 2, y_n + delta * k1 / 2)
- k3 = f(t_n + delta / 2, y_n + delta * k2 / 2)
- k4 = f(t_n + delta, y_n + delta * k3 )
-
- ---------------------------
- Looking to solve
- 
- dw/dt = f(t, w) = I^-1 * (N - w x I*w )
- w = dq/dt
- q = q_0 + delta * w
-
  */
+
 void BoltPlaygroundApp::update()
 {
 	double elapsed = getElapsedSeconds() - mLastTime;
 	mLastTime = getElapsedSeconds();
-	auto t = mTorque;;
+	auto torque = mTorque;;
 	auto w = mW;
 	auto q = mQuat;
 	auto I = mInertiaTensor * mMass;
@@ -316,19 +314,19 @@ void BoltPlaygroundApp::update()
     w = qi * mW;
 	auto kw1 = w;
     auto kq1 = q;
-	auto kdw1 = dw(inverse(kq1) * t,w,I);
+	auto kdw1 = dw(inverse(kq1) * torque,w,I);
 
 	auto kw2  = w + kdw1 * elapsed * 0.5;
 	auto kq2  = q * glm::qua<double>(kw1 * elapsed * 0.5);
-	auto kdw2 = dw(inverse(kq2) * t, kw2, I);
+	auto kdw2 = dw(inverse(kq2) * torque, kw2, I);
 
 	auto kw3  = w + kdw2 * elapsed * 0.5;
 	auto kq3  = q * glm::qua<double>(kw2 * elapsed * 0.5);
-	auto kdw3 = dw(inverse(kq3) * t, kw3, I);
+	auto kdw3 = dw(inverse(kq3) * torque, kw3, I);
 
 	auto kw4  = w + kdw3 * elapsed;
 	auto kq4  = q * glm::qua<double>(kw3 * elapsed);
-	auto kdw4 = dw(inverse(kq4) * t, kw4, I);
+	auto kdw4 = dw(inverse(kq4) * torque, kw4, I);
 
 	auto kdw = (kdw1 + kdw2 * 2.0 + kdw3 * 2.0 + kdw4) * elapsed / 6.0;
 	auto kw  = (kw1  + kw2  * 2.0 + kw3  * 2.0 + kw4)  * elapsed / 6.0;

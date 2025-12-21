@@ -66,7 +66,7 @@ class BoltPlaygroundApp : public App {
 
 private:
     void addSegment(const size_t& start, const size_t& end);
-    void renderSegmentsFbo() const;
+    void renderSegmentsFbo(bool lines) const;
     void drawPrism(const vector<vec3>& vertices) const;
     void drawGui();
     void createCircles();
@@ -98,13 +98,16 @@ private:
     //bool                mDrawLines  = false;
     bool                mUseGeometryShader = true;
   
-    int                 mNumCircles = 6;
+    int                 mNumCircles = 4;
     float               mCircleRadius = 300;
     int                 mBoltDivisions = 4;
     
     int                  mNumSides = 4;
     float                mRadius = 50.0f;
     float                mOffset = 0.1f;
+    float                mBoltWidth = 0.1f;
+    float                mBoltSpread = 6.5f;
+    float                mBoltCanvasWidth = 0.05f;
 
 	vector<vec3>				mVertices;
     
@@ -125,11 +128,6 @@ void BoltPlaygroundApp::setup()
     ImGui::Initialize( ImGui::Options().window( getWindow() ).enableKeyboard( true ) );
     ImGui::GetStyle().ScaleAllSizes( getWindowContentScale() ); // for Retina / hi-dpi
     ImGui::GetStyle().FontScaleMain = getWindowContentScale();
-	// vector<gl::VboMesh::Layout> bufferLayout = {
-	// 	gl::VboMesh::Layout().usage( GL_DYNAMIC_DRAW ).attrib( geom::Attrib::POSITION, 3 ),
-	// 	gl::VboMesh::Layout().usage( GL_STATIC_DRAW ).attrib( geom::Attrib::TEX_COORD_0, 2 )
-	// };
-	// mVboMesh = gl::VboMesh::create( 4, GL_TRIANGLES ,bufferLayout );
     
     mBatch = gl::VertBatch::create(GL_POINTS, true);
     createCircles();
@@ -178,7 +176,8 @@ void BoltPlaygroundApp::setup()
     mTexture = gl::Texture::create( loadImage( loadAsset( "images/cruz_azul.png" ) ), gl::Texture::Format().mipmap() );
     gl::enableVerticalSync(false);
     //mRenderProg = gl::getStockShader( gl::ShaderDef().color() );
-    
+    //glGetInteger()
+   cout <<  gl::getString(GL_MAX_GEOMETRY_OUTPUT_VERTICES) << endl;
 };
 
 void BoltPlaygroundApp::createCircles()
@@ -346,7 +345,7 @@ void BoltPlaygroundApp::drawPrism(const vector<vec3>& vertices) const
     ctx->popVao();
 }
 
-void BoltPlaygroundApp::renderSegmentsFbo() const {
+void BoltPlaygroundApp::renderSegmentsFbo(bool lines) const {
     
     
 	vector<vec3> positions {4};
@@ -381,14 +380,23 @@ void BoltPlaygroundApp::renderSegmentsFbo() const {
 			bV = aV + m * d  + n;
 			eV = aV + (bV - aV) * (1.0f + ex);
 			
-			segmentRect(aV, eV, positions);
-            drawPrism(positions);
 			
+            if (!lines) {
+                segmentRect(aV, eV, positions);
+                drawPrism(positions);
+            } else {
+                gl::drawLine(aV, eV);
+            }
 			aV = bV;
 		}
 
-		segmentRect(aV, mBullets[segment.end].position, positions);
-        drawPrism(positions);
+		
+        if (!lines) {
+            segmentRect(aV, mBullets[segment.end].position, positions);
+            drawPrism(positions);
+        } else {
+            gl::drawLine(aV, mBullets[segment.end].position);
+        }
 	}
    
 	gl::color( Color::white() );
@@ -403,7 +411,10 @@ void BoltPlaygroundApp::drawVba()
     mBoltProg->uniform( "uModelViewProjection", gl::getModelViewProjection() );
     mBoltProg->uniform( "uTime", static_cast<float>(getElapsedSeconds()) );
     mBoltProg->uniform( "uOffset", mOffset);
-    //gl::setDefaultShaderVars();
+    mBoltProg->uniform( "uBoltWidth", mBoltWidth);
+    mBoltProg->uniform( "uBoltCanvasWidth", mBoltCanvasWidth);
+    mBoltProg->uniform( "uBoltSpread", mBoltSpread);
+    mBoltProg->uniform( "uBoltDivisions", mBoltDivisions);
     gl::drawArrays( GL_POINTS, 0, static_cast<GLsizei>( mSegments.size() ) );
     
 }
@@ -412,14 +423,9 @@ void BoltPlaygroundApp::drawVba()
 
 void BoltPlaygroundApp::drawGui()
 {
-    /**
-     bool                mMouseDown = false;
-     bool                mDrawSquares = false;
-     int                 mNumCircles = 10;
-     int                 mBoltDivisions = 8;*/
+ 
     auto fpsString = std::format( "FPS: {}", getAverageFps());
-    //gl::drawString(fpsString, vec2(120, 40), Color::white(), Font("Arial", 24) );
-    
+ 
     ImGui::Begin("Bolt Playground");
     ImGui::Text("%s", fpsString.c_str());
     if (
@@ -431,11 +437,16 @@ void BoltPlaygroundApp::drawGui()
     ImGui::SliderInt( "sides", &mNumSides, 4, 20 );
     ImGui::SliderFloat( "radius", &mRadius, 2.0f, 500.0f );
     ImGui::SliderInt( "bolt divisions", &mBoltDivisions, 2, 20 );
-    ImGui::SliderFloat( "offset", &mOffset, 0.01f, 5.0f );
-        //ImGui::Checkbox( "Draw squares", &mDrawSquares );
+    ImGui::SliderFloat( "offset", &mOffset,-5.0f, 5.0f );
+    ImGui::SliderFloat( "Bolt width", &mBoltWidth, 0.0f, 2.0f);
+    ImGui::SliderFloat( "Bolt canvas width", &mBoltCanvasWidth, 0.0f, 0.5f);
+    ImGui::SliderFloat( "Blot spread", &mBoltSpread, 0.0f, 12.0f);
+
+    //ImGui::Checkbox( "Draw squares", &mDrawSquares );
     ImGui::Checkbox( "Draw circles", &mDrawCircles );
-        //ImGui::Checkbox( "Draw lines", &mDrawLines);
-        //ImGui::Checkbox( "Use Geometry Shader", &mUseGeometryShader );
+    
+    //ImGui::Checkbox( "Draw lines", &mDrawLines);
+    //ImGui::Checkbox( "Use Geometry Shader", &mUseGeometryShader );
     
     ImGui::Combo( "Draw method", &mRenderOptionsSelection, mRenderOptionsItems, 3 );
     ImGui::End();
@@ -443,7 +454,6 @@ void BoltPlaygroundApp::drawGui()
 
 void BoltPlaygroundApp::update()
 {
-    
     gl::ScopedFramebuffer fbScp( mBloomFbo );
     gl::clear( ColorA(0, 0, 0, 0) );
     gl::ScopedViewport scpVp( ivec2( 0 ), mBloomFbo->getSize() );
@@ -451,33 +461,26 @@ void BoltPlaygroundApp::update()
     
     switch (mRenderOptionsSelection) {
         case 0:
-            for (const auto& segment : mSegments) {
-                gl::drawLine(mBullets[segment.start].position, mBullets[segment.end].position);
-            }
+            renderSegmentsFbo(true);
             return;
             break;
         case 1:
-            renderSegmentsFbo();
-            break;
             
+            break;
         case 2:
             drawWithGeometrShader();
             break;
-            
         case 3:
             drawVba();
             break;
         default:
-            
             break;
     }
-    
 }
 
 void BoltPlaygroundApp::draw() {
 
     gl::clear(Color(0.0,0.0,8.0));
-    //gl::draw(mTexture);
     gl::draw( mBloomFbo->getColorTexture());
    
     if(mDrawCircles) {
